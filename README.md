@@ -74,6 +74,7 @@ To check that go to Mission Control Portal and under the `Auth` tab you select `
 Once you have them, you can include it as ‘const’ variable in your code:
 
 ```js
+const telnyx_auth = require("./telnyx-config");
 const g_telnyx_api_auth_v2 = telnyx_auth.api;
 ```
 
