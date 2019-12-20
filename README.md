@@ -104,7 +104,7 @@ const call_control_COMMAND_NAME = (f_call_control_id, f_INPUT1, ...) => {
 		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
 		headers: f_post_headers,
 		json: {
-			call_control_id: f_bridge_id
+			call_control_id: f_call_control_id
 		}
 	};
 
