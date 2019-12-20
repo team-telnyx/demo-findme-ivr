@@ -1,0 +1,11 @@
+/bower_components/
+node_modules/
+
+package-lock.json
+testing/
+
+.DS_Store
+.vscode
+telnyx-config.js
+testing.js
+dialed call ans.json

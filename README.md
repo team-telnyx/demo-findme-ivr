@@ -398,7 +398,7 @@ With all the basic Telnyx Call Control Commands set, we are ready to consume the
 
 
 <p align="center">
-    <img src="https://raw.githubusercontent.com/team-telnyx/demo-find-me/master/find_me.png" width="90%" height="90%" title="find_me_example">
+    <img src="https://github.com/team-telnyx/demo-findme-ivr/blob/master/find_me.png" width="90%" height="90%" title="find_me_example">
 </p>
 
 
