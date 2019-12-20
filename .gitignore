@@ -1,11 +1,11 @@
 /bower_components/
 node_modules/
-
+.gitignore
 package-lock.json
 testing/
 
 .DS_Store
 .vscode
-telnyx-config.js
+telnyx-config copy.js
 testing.js
 dialed call ans.json
