@@ -221,12 +221,14 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 					});
 					speak_call.speak({
 						payload: "Please Leave a Message After the Tone",
+						voice: g_ivr_voice,
+						language: g_ivr_language,
 						client_state: Buffer.from(
 							JSON.stringify(call_state)
 						).toString("base64"),
 					});
 				}
-				res.end()
+				res.end();
 			}
 		}
 
