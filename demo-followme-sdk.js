@@ -155,6 +155,23 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 				),
 			});
 			res.end();
+		} else if (l_client_state_s == "stage-voicemail-greeting"){
+			let call_state = {
+				clientState: "stage-voicemail-greeting",
+				bridgeId: null,
+			};
+			const speak_call = new telnyx.Call({
+				call_control_id: l_bridge_id,
+			});
+			speak_call.speak({
+				payload: "Please Leave a Message After the Tone",
+				voice: g_ivr_voice,
+				language: g_ivr_language,
+				client_state: Buffer.from(
+					JSON.stringify(call_state)
+				).toString("base64")
+			});
+
 		} else {
 			res.end();
 		}
@@ -200,33 +217,26 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 				} else if (l_dtmf_number == "2") {
 					console.log("SEND TO VM");
 					// Answer Bridge Call
+					let call_state = {
+						clientState: "stage-voicemail-greeting",
+						bridgeId: null,
+					};
 					const answer_bridge_call = new telnyx.Call({
 						call_control_id: l_bridge_id,
 					});
 
-					answer_bridge_call.answer();
-
-					let call_state = {
-						clientState: "stage-voicemail",
-						bridgeId: null,
-					};
+					answer_bridge_call.answer({client_state: Buffer.from(
+						JSON.stringify(call_state)
+					).toString("base64")});
+					// Set Client State
+					
 					// Hangup This call
 					const hangup_call = new telnyx.Call({
 						call_control_id: l_call_control_id,
 					});
 					hangup_call.hangup();
 
-					const speak_call = new telnyx.Call({
-						call_control_id: l_bridge_id,
-					});
-					speak_call.speak({
-						payload: "Please Leave a Message After the Tone",
-						voice: g_ivr_voice,
-						language: g_ivr_language,
-						client_state: Buffer.from(
-							JSON.stringify(call_state)
-						).toString("base64"),
-					});
+					
 				}
 				res.end();
 			}
