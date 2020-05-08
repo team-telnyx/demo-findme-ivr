@@ -75,10 +75,9 @@ rest.get("/telnyx-findme", (req, res) => {
 
 rest.post(`/${g_appName}/followme`, async (req, res) => {
 	if (req && req.body && req.body.data.event_type) {
-		var l_hook_event_type = req.body.data.event_type;
-		var l_call_control_id = req.body.data.payload.call_control_id;
-		var l_client_state_64 = req.body.data.payload.client_state;
-		var l_call_state = req.body.data.payload.state;
+		const l_hook_event_type = req.body.data.event_type;
+		const l_call_control_id = req.body.data.payload.call_control_id;
+		const l_client_state_64 = req.body.data.payload.client_state;
 		let l_client_state_s = "";
 		let l_bridge_id = "";
 	} else {
@@ -195,7 +194,7 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 					});
 					call.bridge({ call_control_id: l_bridge_id });
 					res.end();
-					console.log("Call Bridged");
+					console.log("Call Bridged")
 					// Call rejected >> Answer Bridge Call, Speak Message and Hang up this call
 				} else if (l_dtmf_number == "2") {
 					console.log("SEND TO VM");
@@ -208,23 +207,24 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 						call_control_id: l_call_control_id,
 					});
 					hangup_call.hangup();
+
+
 					// Answer Bridge Call
 					const answer_bridge_call = new telnyx.Call({
 						call_control_id: l_bridge_id,
-					}).then(console.log("Answer"));
+					}).then(console.log("Answer"))
 
 					const speak_call = new telnyx.Call({
 						call_control_id: l_bridge_id,
-					});
+					})
 
-					answer_bridge_call.answer().then(
-						speak_call.speak({
-							payload: "Please Leave a Message After the Tone",
-							client_state: Buffer.from(
-								JSON.stringify(call_state)
-							).toString("base64"),
-						})
-					);
+					answer_bridge_call.answer().then(speak_call.speak({
+						payload: "Please Leave a Message After the Tone",
+						client_state: Buffer.from(
+							JSON.stringify(call_state)
+						).toString("base64"),
+					}))
+			
 				}
 			}
 		}
