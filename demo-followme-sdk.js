@@ -249,10 +249,11 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 		req.body.data.payload.digit === "*" ||
 		l_hook_event_type == "call.speak.ended"
 	) {
+		console.log("RECORD CALL")
 		const call = new telnyx.Call({
 			call_control_id: l_call_control_id,
 		});
-		call.record_start({ format: "mp3", channel: "single" });
+		call.record_start({ format: "mp3", channel: "single", play_beep: true });
 		res.end();
 		// Webhook Call Recording Saved >> Send Text Message of recording
 	} else if (l_hook_event_type == "call.recording.saved") {
