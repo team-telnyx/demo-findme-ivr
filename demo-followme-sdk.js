@@ -199,14 +199,13 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 					// Call rejected >> Answer Bridge Call, Speak Message and Hang up this call
 				} else if (l_dtmf_number == "2") {
 					console.log("SEND TO VM");
-						// Answer Bridge Call
-						const answer_bridge_call = new telnyx.Call({
-							call_control_id: l_bridge_id,
-						})
-	
-						
-						answer_bridge_call.answer()
-	
+					// Answer Bridge Call
+					const answer_bridge_call = new telnyx.Call({
+						call_control_id: l_bridge_id,
+					});
+
+					answer_bridge_call.answer();
+
 					let call_state = {
 						clientState: "stage-voicemail",
 						bridgeId: null,
@@ -216,7 +215,7 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 						call_control_id: l_call_control_id,
 					});
 					hangup_call.hangup();
-				
+
 					const speak_call = new telnyx.Call({
 						call_control_id: l_bridge_id,
 					});
@@ -225,9 +224,9 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 						client_state: Buffer.from(
 							JSON.stringify(call_state)
 						).toString("base64"),
-					})
-
+					});
 				}
+				res.end()
 			}
 		}
 
