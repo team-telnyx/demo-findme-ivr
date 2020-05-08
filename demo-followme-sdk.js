@@ -233,7 +233,7 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 					
 					// Hangup This call
 					const hangup_call = new telnyx.Call({
-						call_control_id: l_call_control_id,
+						call_control_id: l_call_control_id
 					});
 					hangup_call.hangup();
 
@@ -251,9 +251,9 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 	) {
 		console.log("RECORD CALL")
 		const call = new telnyx.Call({
-			call_control_id: l_call_control_id,
+			call_control_id: l_call_control_id
 		});
-		call.record_start({ format: "mp3", channel: "single", play_beep: true });
+		call.record_start({ format: "mp3", channels: "single", play_beep: true });
 		res.end();
 		// Webhook Call Recording Saved >> Send Text Message of recording
 	} else if (l_hook_event_type == "call.recording.saved") {
