@@ -213,18 +213,19 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 						call_control_id: l_bridge_id,
 					}).then(console.log("Answer"));
 
+					
+					answer_bridge_call.answer()
+
 					const speak_call = new telnyx.Call({
 						call_control_id: l_bridge_id,
 					});
+					speak_call.speak({
+						payload: "Please Leave a Message After the Tone",
+						client_state: Buffer.from(
+							JSON.stringify(call_state)
+						).toString("base64"),
+					})
 
-					answer_bridge_call.answer().then(
-						speak_call.speak({
-							payload: "Please Leave a Message After the Tone",
-							client_state: Buffer.from(
-								JSON.stringify(call_state)
-							).toString("base64"),
-						})
-					);
 				}
 			}
 		}
