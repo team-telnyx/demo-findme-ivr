@@ -211,7 +211,7 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 					// Answer Bridge Call
 					const answer_bridge_call = new telnyx.Call({
 						call_control_id: l_bridge_id,
-					}).then(console.log("Answer"));
+					})
 
 					
 					answer_bridge_call.answer()
