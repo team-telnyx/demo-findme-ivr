@@ -79,33 +79,17 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 		var l_call_control_id = req.body.data.payload.call_control_id;
 		var l_client_state_64 = req.body.data.payload.client_state;
 		var l_call_state = req.body.data.payload.state;
-		let l_client_state_s = "";
-		let l_bridge_id = "";
+	
 	} else {
 		console.log(`[%s] LOG - Invalid Webhook received! ${get_timestamp()}`);
 		res.end("0");
 	}
 	console.log(req.body.data);
 	// If client_state exists decode from base64
-	if (l_client_state_64 != null || "") {
-		let l_client_state_d = Buffer.from(
-			l_client_state_64,
-			"base64"
-		).toString("ascii");
-		// String -> Object
-		let l_client_state_o = JSON.parse(l_client_state_d);
-		//Parsed from Object for use
-		l_client_state_s = l_client_state_o.clientState;
-		l_bridge_id = l_client_state_o.bridgeId;
-		console.log(
-			`[%s] LOG - Webhook received - ${get_timestamp()} 
-			client_state | ${l_client_state_s}
-			bridge_id | ${l_bridge_id}
-			
-			------------------------------`
+	if (l_client_state_64 != null || "")
+		var l_client_state_o = JSON.parse(
+			Buffer.from(l_client_state_64, "base64").toString("ascii")
 		);
-	}
-
 	// Call Initiated >> Command Dial
 	if (l_hook_event_type == "call.initiated") {
 		console.log("initiate");
@@ -134,12 +118,12 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 
 		// Webhook Dial answered by User - Command Gather Using Speak
 	} else if (l_hook_event_type == "call.answered") {
-		console.log(`Answered - Client_state:${l_client_state_s}`);
-		if (l_client_state_s == "stage-bridge") {
+		console.log(`Answered - Client_state:${l_client_state_o.clientState}`);
+		if (l_client_state_o.clientState == "stage-bridge") {
 			console.log("SPEAK");
 			let call_state = {
 				clientState: "stage-dial",
-				bridgeId: l_bridge_id,
+				bridgeId: l_client_state_o.bridgeId,
 			};
 
 			const call = new telnyx.Call({
@@ -155,8 +139,8 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 				),
 			});
 			res.end();
-		} else if (l_client_state_s == "stage-voicemail-greeting"){
-			console.log("SPEAK VOICEMAIL GREETING")
+		} else if (l_client_state_o.clientState == "stage-voicemail-greeting") {
+			console.log("SPEAK VOICEMAIL GREETING");
 			let call_state = {
 				clientState: "stage-voicemail",
 				bridgeId: null,
@@ -168,11 +152,10 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 				payload: "Please Leave a Message After the Tone",
 				voice: g_ivr_voice,
 				language: g_ivr_language,
-				client_state: Buffer.from(
-					JSON.stringify(call_state)
-				).toString("base64")
+				client_state: Buffer.from(JSON.stringify(call_state)).toString(
+					"base64"
+				),
 			});
-
 		} else {
 			res.end();
 		}
@@ -203,7 +186,7 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 			// do nothing... will have state
 		} else {
 			// Selected Answer Call >> Bridge Calls
-			if (l_client_state_s == "stage-dial" && l_dtmf_number) {
+			if (l_client_state_o.clientState == "stage-dial" && l_dtmf_number) {
 				// Bridge Call
 				console.log(`DTMF RECIEVED: ${l_dtmf_number}`);
 				if (l_dtmf_number == "1") {
@@ -211,7 +194,7 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 					const call = new telnyx.Call({
 						call_control_id: l_call_control_id,
 					});
-					call.bridge({ call_control_id: l_bridge_id });
+					call.bridge({ call_control_id: l_client_state_o.bridgeId });
 					res.end();
 					console.log("Call Bridged");
 					// Call rejected >> Answer Bridge Call, Speak Message and Hang up this call
@@ -223,21 +206,21 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 						bridgeId: null,
 					};
 					const answer_bridge_call = new telnyx.Call({
-						call_control_id: l_bridge_id,
+						call_control_id: l_client_state_o.bridgeId,
 					});
 
-					answer_bridge_call.answer({client_state: Buffer.from(
-						JSON.stringify(call_state)
-					).toString("base64")});
+					answer_bridge_call.answer({
+						client_state: Buffer.from(
+							JSON.stringify(call_state)
+						).toString("base64"),
+					});
 					// Set Client State
-					
+
 					// Hangup This call
 					const hangup_call = new telnyx.Call({
-						call_control_id: l_call_control_id
+						call_control_id: l_call_control_id,
 					});
 					hangup_call.hangup();
-
-					
 				}
 				res.end();
 			}
@@ -249,11 +232,15 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 		req.body.data.payload.digit === "*" ||
 		l_hook_event_type == "call.speak.ended"
 	) {
-		console.log("RECORD CALL")
+		console.log("RECORD CALL");
 		const call = new telnyx.Call({
-			call_control_id: l_call_control_id
+			call_control_id: l_call_control_id,
 		});
-		call.record_start({ format: "mp3", channels: "single", play_beep: true });
+		call.record_start({
+			format: "mp3",
+			channels: "single",
+			play_beep: true,
+		});
 		res.end();
 		// Webhook Call Recording Saved >> Send Text Message of recording
 	} else if (l_hook_event_type == "call.recording.saved") {
