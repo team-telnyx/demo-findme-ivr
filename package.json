@@ -5,7 +5,7 @@
   "main": "demo-followme.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon demo-followme"
+    "dev": "nodemon demo-followme-sdk"
   },
   "keywords": [],
   "author": "",

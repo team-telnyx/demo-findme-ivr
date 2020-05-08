@@ -6,6 +6,6 @@ testing/
 
 .DS_Store
 .vscode
-telnyx-config copy.js
+telnyx-config-copy.js
 testing.js
 dialed call ans.json

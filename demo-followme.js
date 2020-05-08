@@ -11,7 +11,6 @@ const g_appName = "telnyx-findme";
 var g_call_control_options = [];
 // timeout_to_vm
 
-
 // TTS Options
 const g_ivr_voice = "female";
 const g_ivr_language = "en-GB";
@@ -29,7 +28,7 @@ const request = require("request");
 
 // =============================================== Telnyx Account Details ==============================================
 // Storing all our secure credentials and information in telnyx_auth
-const telnyx_auth = require("./telnyx-config");
+const telnyx_auth = require("./telnyx-config-copy");
 // Telnyx ApiV2 Key
 const g_telnyx_api_auth_v2 = telnyx_auth.api;
 // Connection ID to place outbound Dial on
@@ -45,16 +44,6 @@ const g_post_headers = {
 	Accept: "application/json",
 	Authorization: `Bearer ${g_telnyx_api_auth_v2}`
 };
-
-// =============================================== Optional E-Mail Int ===========================================
-// Nodemailer SDK - Info: https://nodemailer.com/about/
-const nodemailer = require("nodemailer");
-// User's Email Address
-const g_recordings_email = telnyx_auth.user_email;
-// Email Sender Account Address
-const g_smtp_user = telnyx_auth.smtp_user;
-// Enail Sender Account Password
-const g_smtp_pass = telnyx_auth.smtp_pass;
 
 // ================================================ RESTful API Creation ================================================
 
@@ -88,6 +77,30 @@ const get_timestamp = () => {
 
 // ================================================ TELNYX COMMANDS API  ================================================
 
+// Call Control - Answer
+const call_control_answer = (f_post_headers, f_call_control_id) => {
+	console.log(`[%s] LOG - Hangup! ${get_timestamp()}`);
+
+	var l_cc_action = "answer";
+
+	var options = {
+		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
+		headers: f_post_headers,
+		json: {}
+	};
+
+	request.post(options, function(err, resp, body) {
+		if (err) {
+			return console.log(err);
+		}
+		console.log(
+			`[%s] DEBUG - Command Executed [%s]",
+			${get_timestamp()} | ${l_cc_action}
+		`
+		);
+		console.log(body);
+	});
+};
 // Call Control - Bridge
 const call_control_bridge = (
 	f_post_headers,
@@ -141,7 +154,8 @@ const call_control_dial = (
 			connection_id: f_connection_id,
 			to: f_dest,
 			from: f_orig,
-			client_state: l_client_state_64
+			client_state: l_client_state_64,
+			timeout_secs: "10"
 		}
 	};
 
@@ -230,7 +244,7 @@ const call_control_speak = (
 		console.log(
 			"[%s] DEBUG - Command Executed [%s]",
 			get_timestamp(),
-			l_cc_action
+			l_cc_action 
 		);
 		console.log(body);
 	});
@@ -289,7 +303,7 @@ const call_control_record_start = (f_post_headers, f_call_control_id) => {
 };
 
 // Send Text - Voicemail Notification
-const sms_send_notification = f_post_headers => {
+const sms_send_notification = (f_post_headers, f_recording_url) => {
 	console.log(`"[%s] LOG - TEXT!" ${get_timestamp()}`);
 	const l_cc_action = "sendtext";
 
@@ -299,7 +313,7 @@ const sms_send_notification = f_post_headers => {
 		json: {
 			from: g_call_control_did,
 			to: g_forwarding_did,
-			text: `You have a new voicemail available `
+			text: `You have a new voicemail available: ${f_recording_url} `
 		}
 	};
 
@@ -314,44 +328,6 @@ const sms_send_notification = f_post_headers => {
 		);
 		console.log(body);
 	});
-};
-//  ========== Optional ========== Send Email of Call Recording =====================================
-const send_email = async (
-	f_recording_link,
-	f_smtp_user,
-	f_smtp_pass,
-	f_recordings_email
-) => {
-	console.log(`"[%s] LOG - SEND EMAIL!" ${get_timestamp()}`);
-	// create reusable transporter object using the default SMTP transport
-	let transporter = nodemailer.createTransport({
-		host: "smtp.ethereal.email",
-		port: 587,
-		secure: false, // true for 465, false for other ports
-		auth: {
-			user: f_smtp_user,
-			pass: f_smtp_pass
-		}
-	});
-
-	// Send email with link to call recording
-	let info = await transporter.sendMail({
-		from: '"TelNyx Recordings" <foo@example.com>', // sender address
-		to: `${f_recordings_email}`, // list of receivers
-		subject: "New Recording", // Subject line
-		text: "H", // plain text body
-		html: `
-		<b>New recording available:</b>
-		<br>
-		<a href="${f_recording_link}">Download your recording</a>`
-	});
-
-	console.log("Message sent: %s", info.messageId);
-	// Message sent: <b658f8ca-6296-ccf4-8306-87d57a0b4321@example.com>
-
-	// Preview only available when sending through an Ethereal account
-	console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
-	// Preview URL: https://ethereal.email/message/WaQKMgKddxQDoou...
 };
 
 // ================================================    WEBHOOK API IVR   ================================================
@@ -380,34 +356,39 @@ rest.post(`/${g_appName}/followme`, (req, res) => {
 		);
 	}
 	// If client_state exists decodes from base64 to ascii
-	if (l_client_state_64 != null || "")
+	if (l_client_state_64 != null || "") 
 		var l_client_state_s = Buffer.from(
 			l_client_state_64,
 			"base64"
 		).toString("ascii");
 	// Log call_control_id
 	console.log(
-		`[%s] LOG - Webhook received - call_control_id [%s] ${get_timestamp()} | ${l_call_control_id}`
+		`[%s] LOG - Webhook received - ${get_timestamp()} 
+		call_control_id | ${l_call_control_id}
+		client_state | ${l_client_state_s}
+		bridge_id | ${l_bridge_id}
+		event_type | ${l_hook_event_type}
+		------------------------------`
 	);
 
 	// Log_client_state
-	console.log(
-		`[%s] LOG - Webhook received - client_state [%s] ${get_timestamp()} | ${l_client_state_s}`
-	);
+	// console.log(
+	// 	`[%s] LOG - Webhook received - client_state [%s] ${get_timestamp()} | ${l_client_state_s}`
+	// );
 
 	// Log for Call ID of the Origination Call that we will bridge - if the call is accepted
-	console.log(
-		`[%s] LOG - Webhook received - bridge_id [%s] ${get_timestamp()} | ${l_bridge_id}`
-	);
+	// console.log(
+	// 	`[%s] LOG - Webhook received - bridge_id [%s] ${get_timestamp()} | ${l_bridge_id}`
+	// );
 
 	// Log Complete WebHook
-	console.log(
-		`[%s] DEBUG - Webhook received - complete payload: %s ${get_timestamp()} | ${JSON.stringify(
-			req.body.data,
-			null,
-			4
-		)}`
-	);
+	// console.log(
+	// 	`[%s] DEBUG - Webhook received - complete payload: %s ${get_timestamp()} | ${JSON.stringify(
+	// 		req.body.data,
+	// 		null,
+	// 		4
+	// 	)}`
+	// );
 
 	// Webhook Call State = Park >> Store Call Control ID >>> Bridge ID
 	if (l_call_state == "parked") {
@@ -415,6 +396,7 @@ rest.post(`/${g_appName}/followme`, (req, res) => {
 		console.log(
 			`[%s] LOG - Webhook received - Parked call_control_id > bridge_id [%s] ${get_timestamp()} | ${l_bridge_id}`
 		);
+		res.end()
 	}
 	// Call Initiated >> Command Dial
 	if (l_hook_event_type == "call.initiated") {
@@ -428,12 +410,15 @@ rest.post(`/${g_appName}/followme`, (req, res) => {
 				req.body.data.payload.from,
 				"stage-bridge"
 			);
+			res.end()
 		} else if (req.body.data.payload.direction == "outgoing") {
 			// Timeout 20 seconds - No Answer thus emppty message does not end up in cell phone voicemail
-			console.log(`[%s] LOG - Time Out Set [%s] ${get_timestamp()} | ${l_bridge_id}`)
+			console.log(
+				`[%s] LOG - Time Out Set [%s] ${get_timestamp()} | ${l_bridge_id}`
+			);
 			timeout_to_vm = setTimeout(
 				call_control_speak,
-				20000,
+				30000,
 				g_post_headers,
 				l_call_control_id,
 				l_bridge_id,
@@ -457,18 +442,17 @@ rest.post(`/${g_appName}/followme`, (req, res) => {
 		res.end();
 
 		// Webhook Call Bridged >> Do Nothing
-	} else if (l_hook_event_type == "call.bridged") {
+	} else if (
+		l_hook_event_type == "call.bridged" ||
+		l_hook_event_type == "call.speak.started"
+	) {
 		res.end();
 		// Webhook Call Speak Started >> Do Nothing
-	} else if (l_hook_event_type == "call.speak.started") {
-		res.end();
-		// Webhook Call Hangup >> Clear DTMF Call Control Options
 	} else if (l_hook_event_type == "call.hangup") {
 		g_call_control_options = [];
 		res.end();
 		// Webhook Listen for DTMF to execute Call Recording on Demand
 	} else if (l_hook_event_type == "call.dtmf.received") {
-		
 		if (
 			req.body.data.payload.digit === "*" ||
 			req.body.data.payload.digit === "9"
@@ -492,7 +476,7 @@ rest.post(`/${g_appName}/followme`, (req, res) => {
 			res.end();
 		}
 		res.end();
-		// Webhook Gather Ended >> Process DTMF for IVR 
+		// Webhook Gather Ended >> Process DTMF for IVR
 	} else if (l_hook_event_type == "call.gather.ended") {
 		// Receive DTMF Number
 		var l_dtmf_number = req.body.data.payload.digits;
@@ -500,15 +484,19 @@ rest.post(`/${g_appName}/followme`, (req, res) => {
 		console.log(
 			`[%s] DEBUG - RECEIVED DTMF [%s]${(get_timestamp(), l_dtmf_number)}`
 		);
+		res.end()
 
 		// Check Users Selection for forwarded call
 		if (!l_client_state_64) {
+			res.end()
 			// do nothing... will have state
 		} else {
 			// Selected Answer Call >> Bridge Calls
 			if (l_client_state_s == "stage-dial" && l_dtmf_number) {
 				// Bridge Call
+				console.log(`DTMF RECIEVED: ${l_dtmf_number}`)
 				if (l_dtmf_number == "1") {
+					
 					// Clear Timeout - Call Has been answered
 					clearTimeout(timeout_to_vm);
 					// Bridge Call
@@ -517,8 +505,10 @@ rest.post(`/${g_appName}/followme`, (req, res) => {
 						l_call_control_id,
 						l_bridge_id
 					);
+					res.end()
 					// Call rejected >> Speak Message and Hang up this call
 				} else if (l_dtmf_number == "2") {
+					call_control_answer(g_post_headers,l_bridge_id)
 					call_control_speak(
 						g_post_headers,
 						l_call_control_id,
@@ -526,6 +516,7 @@ rest.post(`/${g_appName}/followme`, (req, res) => {
 						"Please Leave a Message After the Tone",
 						"stage-voicemail"
 					);
+					res.end()
 				}
 			}
 		}
@@ -533,24 +524,20 @@ rest.post(`/${g_appName}/followme`, (req, res) => {
 		res.end();
 		// Webhook Speek Ended >> Record VoiceMail
 	} else if (l_hook_event_type == "call.speak.ended") {
-		call_control_record_start(
-			g_post_headers,
-			l_call_control_id
-		);
+		call_control_record_start(g_post_headers, l_call_control_id);
 		res.end();
 		// Webhook Call Recording Saved >> Send Text Message of recording
 	} else if (l_hook_event_type == "call.recording.saved") {
 		//Send Text Message Alert for call recording
-		sms_send_notification(g_post_headers);
+		sms_send_notification(
+			g_post_headers,
+			req.body.data.payload.recording_urls.mp3
+		);
 		// Send Email with link to recording
-		send_email(
-			req.body.data.payload.recording_urls.mp3,
-			g_smtp_user,
-			g_smtp_pass,
-			g_recordings_email
-		).catch(console.error);
+
 		res.end();
 	}
+	res.end()
 });
 
 // ================================================ RESTful Server Start ================================================
