@@ -156,12 +156,13 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 			});
 			res.end();
 		} else if (l_client_state_s == "stage-voicemail-greeting"){
+			console.log("SPEAK VOICEMAIL GREETING")
 			let call_state = {
-				clientState: "stage-voicemail-greeting",
+				clientState: "stage-voicemail",
 				bridgeId: null,
 			};
 			const speak_call = new telnyx.Call({
-				call_control_id: l_bridge_id,
+				call_control_id: l_call_control_id,
 			});
 			speak_call.speak({
 				payload: "Please Leave a Message After the Tone",
