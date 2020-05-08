@@ -79,7 +79,6 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 		var l_call_control_id = req.body.data.payload.call_control_id;
 		var l_client_state_64 = req.body.data.payload.client_state;
 		var l_call_state = req.body.data.payload.state;
-	
 	} else {
 		console.log(`[%s] LOG - Invalid Webhook received! ${get_timestamp()}`);
 		res.end("0");
@@ -92,9 +91,7 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 		);
 	// Call Initiated >> Command Dial
 	if (l_hook_event_type == "call.initiated") {
-		console.log("initiate");
 		if (req.body.data.payload.direction == "incoming") {
-			console.log("incoming");
 			// Dial IVR Present Menu to Accept or Reject, if no answer in 30 seconds - Timeoute and Hangup
 			let call_state = {
 				clientState: "stage-bridge",
@@ -110,7 +107,11 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 				),
 				timeout_secs: "30",
 			});
-
+			console.log(
+				`[%s] LOG - EXEC DIAL -  [%s] ${get_timestamp()} | ${
+					req.body.data.payload.result
+				}`
+			);
 			res.end();
 		} else if (req.body.data.payload.direction == "outgoing") {
 			res.end();
@@ -120,7 +121,6 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 	} else if (l_hook_event_type == "call.answered") {
 		console.log(`Answered - Client_state:${l_client_state_o.clientState}`);
 		if (l_client_state_o.clientState == "stage-bridge") {
-			console.log("SPEAK");
 			let call_state = {
 				clientState: "stage-dial",
 				bridgeId: l_client_state_o.bridgeId,
@@ -138,9 +138,9 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 					"base64"
 				),
 			});
+			console.log(`[%s] LOG - EXEC GATHER -  [%s] ${get_timestamp()}`);
 			res.end();
 		} else if (l_client_state_o.clientState == "stage-voicemail-greeting") {
-			console.log("SPEAK VOICEMAIL GREETING");
 			let call_state = {
 				clientState: "stage-voicemail",
 				bridgeId: null,
@@ -156,6 +156,9 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 					"base64"
 				),
 			});
+			console.log(
+				`[%s] LOG - EXEC SPEAK VM GREETING -  [%s] ${get_timestamp()}`
+			);
 		} else {
 			res.end();
 		}
@@ -176,7 +179,7 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 		const l_dtmf_number = req.body.data.payload.digits;
 
 		console.log(
-			`[%s] DEBUG - RECEIVED DTMF [%s]${(get_timestamp(), l_dtmf_number)}`
+			`[%s] DEBUG - RECEIVED DTMF [%s]${get_timestamp()} | ${l_dtmf_number}`
 		);
 		res.end();
 
@@ -188,7 +191,7 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 			// Selected Answer Call >> Bridge Calls
 			if (l_client_state_o.clientState == "stage-dial" && l_dtmf_number) {
 				// Bridge Call
-				console.log(`DTMF RECIEVED: ${l_dtmf_number}`);
+
 				if (l_dtmf_number == "1") {
 					// Bridge Call
 					const call = new telnyx.Call({
@@ -196,10 +199,11 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 					});
 					call.bridge({ call_control_id: l_client_state_o.bridgeId });
 					res.end();
-					console.log("Call Bridged");
+					console.log(
+						`[%s] LOG - EXEC BRIDGE CALLS -  [%s] ${get_timestamp()}`
+					);
 					// Call rejected >> Answer Bridge Call, Speak Message and Hang up this call
 				} else if (l_dtmf_number == "2") {
-					console.log("SEND TO VM");
 					// Answer Bridge Call
 					let call_state = {
 						clientState: "stage-voicemail-greeting",
@@ -221,6 +225,9 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 						call_control_id: l_call_control_id,
 					});
 					hangup_call.hangup();
+					console.log(
+						`[%s] LOG - EXEC HANGUP FINDME AND SEND TO VM -  [%s] ${get_timestamp()}`
+					);
 				}
 				res.end();
 			}
@@ -232,7 +239,6 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 		req.body.data.payload.digit === "*" ||
 		l_hook_event_type == "call.speak.ended"
 	) {
-		console.log("RECORD CALL");
 		const call = new telnyx.Call({
 			call_control_id: l_call_control_id,
 		});
@@ -241,21 +247,24 @@ rest.post(`/${g_appName}/followme`, async (req, res) => {
 			channels: "single",
 			play_beep: true,
 		});
+		console.log(
+			`[%s] LOG - EXEC RECORD INITIATE -  [%s] ${get_timestamp()}`
+		);
 		res.end();
 		// Webhook Call Recording Saved >> Send Text Message of recording
 	} else if (l_hook_event_type == "call.recording.saved") {
 		//Send Text Message Alert for call recording
 
-		// telnyx.messages
-		// 	.create({
-		// 		from: g_call_control_did, // Your Telnyx number
-		// 		to: g_forwarding_did,
-		// 		text: req.body.data.payload.recording_urls.mp3,
-		// 	})
-		// 	.then(function(response) {
-		// 		const message = response.data; // asynchronously handled
-		// 	});
-		console.log("SEND SMS");
+		telnyx.messages
+			.create({
+				from: g_call_control_did, // Your Telnyx number
+				to: g_forwarding_did,
+				text: req.body.data.payload.recording_urls.mp3,
+			})
+			.then(function(response) {
+				const message = response.data; // asynchronously handled
+			});
+		console.log(`[%s] LOG - EXEC SEND SMS -  [%s] ${get_timestamp()}`);
 
 		res.end();
 	}
