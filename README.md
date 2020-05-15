@@ -327,7 +327,7 @@ Once you identify the `Event Type` and `client_state` received, it’s just a ma
 
 
 ### `Webhook Call Initiated >> Command Dial`
-If our event_type is call.initiated and the direction is incoming we are going to execute the command to Dial the User. After the Dial is executed and we get a new webhook for the dialed call which the direction will be "outgoing," we will execute our 20 second time out function so that the user's mobile voicemail doesn't pick up and we leave an empty message there
+If our event_type is call.initiated and the direction is incoming we are going to execute the command to Dial the User. After the Dial is executed and we get a new webhook for the dialed call which the direction will be "outgoing," we will specify our `timeout_secs` parameter to 30 seconds so that the user's mobile voicemail doesn't pick up and we leave an empty message there
 
 ```js
 if (l_hook_event_type == "call.initiated") {
