@@ -74,7 +74,7 @@ To check that go to Mission Control Portal and under the `Auth` tab you select `
 Once you have them, you can include it as ‘const’ variable in your code:
 
 ```js
-const telnyx_auth = require("../telnyx-config-copy");
+const telnyx_auth = require("./telnyx-config");
 
 const telnyx = Telnyx(telnyx_auth.api);
 ```
@@ -86,9 +86,7 @@ const telnyx_config = {
 	api: "YOURAPIV2KEYgoeshere",
         connection_id: "1110011011",
         telnyx_did: "+18888675309",
-	c_fwd_number: "+13128675309",
-
-};
+	c_fwd_number: "+13128675309"};
 
 module.exports = telnyx_config;
 
@@ -102,8 +100,7 @@ const { data: call } = await telnyx.calls.create({
 			connection_id: g_connection_id,
 			to: g_forwarding_did,
 			from: req.body.data.payload.from,
-			client_state: `base64encodedstring`
-		});
+			client_state: `base64encodedstring`});
 ```
 
 ### Understanding the use of the SDK
@@ -113,17 +110,15 @@ There are several aspects of the SDK that deserve some attention:
 `Input Parameters`: to execute every Telnyx Call Control Command you’ll need to feed your function with the following: the `Call Control ID`; and the input parameters, specific to the body of the Command you’re executing.
 ```js
 const gather = new telnyx.Call({
-			call_control_id: l_call_control_id,
-		});
+			call_control_id: l_call_control_id,});
 gather.gather_using_speak({
-				payload: "Call Forwarded press 1 to accept or 2 to reject",
-				voice: g_ivr_voice,
-				language: g_ivr_language,
-				valid_digits: "123",
-				client_state: Buffer.from(
-					JSON.stringify(l_client_state)
-				).toString("base64"),
-			});
+		payload: "Call Forwarded press 1 to accept or 2 to reject",
+		voice: g_ivr_voice,
+		language: g_ivr_language,
+		valid_digits: "123",
+		client_state: Buffer.from(
+			JSON.stringify(l_client_state)
+		).toString("base64")});
 ```
 All Telnyx Call Control Commands will be expecting the `Call Control ID` except `Dial`. There you’ll get a new one for the leg generated as response.
 
@@ -308,8 +303,6 @@ You can set these at the beginning of your code:
 ```js
 // Application:
 const g_appName = "telnyx-findme";
-// Store DTMF to initiate functions
-var g_call_control_options = [];
 
 // TTS Options
 const g_ivr_voice = "female";
