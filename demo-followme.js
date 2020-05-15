@@ -7,9 +7,6 @@
 
 // Application:
 const g_appName = "telnyx-findme";
-// Store DTMF to initiate functions
-var g_call_control_options = [];
-// timeout_to_vm
 
 // TTS Options
 const g_ivr_voice = "female";
@@ -24,26 +21,19 @@ const g_ivr_language = "en-GB";
 // ================================================ Dependencies =======================================================
 
 const express = require("express");
-const request = require("request");
+const Telnyx = require("telnyx");
 
 // =============================================== Telnyx Account Details ==============================================
 // Storing all our secure credentials and information in telnyx_auth
-const telnyx_auth = require("./telnyx-config-copy");
+const telnyx_auth = require("./telnyx-config");
 // Telnyx ApiV2 Key
-const g_telnyx_api_auth_v2 = telnyx_auth.api;
+const telnyx = Telnyx(telnyx_auth.api);
 // Connection ID to place outbound Dial on
 const g_connection_id = telnyx_auth.connection_id;
 // Phone number we will try to connect with
 const g_forwarding_did = telnyx_auth.c_fwd_number;
 // Telnyx DID configured for this App in Mission Control
 const g_call_control_did = telnyx_auth.telnyx_did;
-
-// DRY - Post Request Headers
-const g_post_headers = {
-	"Content-Type": "application/json",
-	Accept: "application/json",
-	Authorization: `Bearer ${g_telnyx_api_auth_v2}`
-};
 
 // ================================================ RESTful API Creation ================================================
 
@@ -75,469 +65,223 @@ const get_timestamp = () => {
 	);
 };
 
-// ================================================ TELNYX COMMANDS API  ================================================
-
-// Call Control - Answer
-const call_control_answer = (f_post_headers, f_call_control_id) => {
-	console.log(`[%s] LOG - Hangup! ${get_timestamp()}`);
-
-	var l_cc_action = "answer";
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-		console.log(
-			`[%s] DEBUG - Command Executed [%s]",
-			${get_timestamp()} | ${l_cc_action}
-		`
-		);
-		console.log(body);
-	});
-};
-// Call Control - Bridge
-const call_control_bridge = (
-	f_post_headers,
-	f_call_control_id,
-	f_bridge_id
-) => {
-	console.log("[%s] LOG - Bridge!", get_timestamp());
-	var l_cc_action = "bridge";
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {
-			call_control_id: f_bridge_id
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-		console.log(
-			"[%s] DEBUG - Command Executed [%s]",
-			get_timestamp(),
-			l_cc_action
-		);
-		console.log(body);
-	});
-};
-
-// Call Control - Dial
-const call_control_dial = (
-	f_post_headers,
-	f_connection_id,
-	f_dest,
-	f_orig,
-	f_client_state_s
-) => {
-	console.log("[%s] LOG - DIAL!", get_timestamp());
-	var l_cc_action = "dial";
-
-	var l_client_state_64 = null;
-
-	if (f_client_state_s)
-		l_client_state_64 = Buffer.from(f_client_state_s).toString("base64");
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/`,
-		headers: f_post_headers,
-		json: {
-			connection_id: f_connection_id,
-			to: f_dest,
-			from: f_orig,
-			client_state: l_client_state_64,
-			timeout_secs: "10"
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-		console.log(
-			"[%s] DEBUG - Command Executed [%s]",
-			get_timestamp(),
-			l_cc_action
-		);
-		console.log(body);
-	});
-};
-
-// Call Control - Gather Using Speak
-const call_control_gather_using_speak = (
-	f_post_headers,
-	f_call_control_id,
-	f_tts_text,
-	f_gather_digits,
-	f_client_state_s
-) => {
-	console.log(`[%s] LOG - Gather Using Speak! ${get_timestamp()}`);
-	var l_cc_action = "gather_using_speak";
-	var l_client_state_64 = null;
-
-	if (f_client_state_s)
-		l_client_state_64 = Buffer.from(f_client_state_s).toString("base64");
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {
-			payload: f_tts_text,
-			voice: g_ivr_voice,
-			language: g_ivr_language,
-			valid_digits: f_gather_digits,
-			client_state: l_client_state_64
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-		console.log(
-			"[%s] DEBUG - Command Executed [%s]",
-			get_timestamp(),
-			l_cc_action
-		);
-		console.log(body);
-	});
-};
-// Call Control - Speak
-const call_control_speak = (
-	f_post_headers,
-	f_dial_cancel_control_id,
-	f_call_control_id,
-	f_tts_text,
-	f_client_state_s
-) => {
-	console.log("[%s] LOG - SPEAK!", get_timestamp());
-	call_control_hangup(f_post_headers, f_dial_cancel_control_id);
-	var l_cc_action = "speak";
-	if (f_client_state_s)
-		l_client_state_64 = Buffer.from(f_client_state_s).toString("base64");
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {
-			payload: f_tts_text,
-			voice: g_ivr_voice,
-			language: g_ivr_language,
-			client_state: l_client_state_64,
-			command_id: "891510ac-f3e4-11e8-af5b-de00688a4901"
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-		console.log(
-			"[%s] DEBUG - Command Executed [%s]",
-			get_timestamp(),
-			l_cc_action 
-		);
-		console.log(body);
-	});
-};
-// Call Control - Hangup
-const call_control_hangup = (f_post_headers, f_call_control_id) => {
-	console.log(`[%s] LOG - Hangup! ${get_timestamp()}`);
-
-	var l_cc_action = "hangup";
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-		console.log(
-			`[%s] DEBUG - Command Executed [%s]",
-			${get_timestamp()} | ${l_cc_action}
-		`
-		);
-		console.log(body);
-	});
-};
-
-// Call Control - Recording Start
-const call_control_record_start = (f_post_headers, f_call_control_id) => {
-	console.log(`[%s] LOG - RECORD! ${get_timestamp()}`);
-	var l_cc_action = "record_start";
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {
-			format: "mp3",
-			channels: "single",
-			play_beep: true
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-		console.log(
-			"[%s] DEBUG - Command Executed [%s]",
-			get_timestamp(),
-			l_cc_action
-		);
-		console.log(body);
-	});
-};
-
-// Send Text - Voicemail Notification
-const sms_send_notification = (f_post_headers, f_recording_url) => {
-	console.log(`"[%s] LOG - TEXT!" ${get_timestamp()}`);
-	const l_cc_action = "sendtext";
-
-	const options = {
-		url: "https://api.telnyx.com/v2/messages",
-		headers: f_post_headers,
-		json: {
-			from: g_call_control_did,
-			to: g_forwarding_did,
-			text: `You have a new voicemail available: ${f_recording_url} `
-		}
-	};
-
-	request.post(options, (err, resp, body) => {
-		if (err) {
-			return console.log(err);
-		}
-		console.log(
-			"[%s] DEBUG - Command Executed [%s]",
-			get_timestamp(),
-			l_cc_action
-		);
-		console.log(body);
-	});
-};
-
 // ================================================    WEBHOOK API IVR   ================================================
+
+// GET - Make sure our APP is running: https://<your_webhook_url>:8081/telnyx-findme/
+
+rest.get(`/${g_appName}`, (req, res) => {
+	res.send(`<h1>Telnyx Find Me Follow Me Demo is Running!</h1>`);
+});
 
 // POST - Receive Number: https://<your_webhook_url>:8081/telnyx-findme/followme
 
-rest.get("/telnyx-findme", (req, res) => {
-	res.send(`<h1>Telnyx APIv2 Follow Me Demo is Running!</h1>`);
-});
-
-rest.post(`/${g_appName}/followme`, (req, res) => {
+rest.post(`/${g_appName}/followme`, async (req, res) => {
 	if (req && req.body && req.body.data.event_type) {
 		var l_hook_event_type = req.body.data.event_type;
 		var l_call_control_id = req.body.data.payload.call_control_id;
 		var l_client_state_64 = req.body.data.payload.client_state;
-		var l_call_state = req.body.data.payload.state;
 	} else {
 		console.log(`[%s] LOG - Invalid Webhook received! ${get_timestamp()}`);
 		res.end("0");
 	}
-	// l_bridge_id is the original caller that needs to be bridged on to the customers dial shold they choose to connect
-	if (l_call_state == "parked") {
-		l_bridge_id = l_call_control_id;
-		console.log(
-			`[%s] LOG - Webhook received - Parked call_control_id > bridge_id [%s] ${get_timestamp()} | ${l_bridge_id}`
+	// Log the Full Webhook from Telnyx - You cann comment out in a production enviornment
+	console.log(req.body.data);
+
+	// If client_state exists decode from base64
+	if (l_client_state_64 != null || "")
+		var l_client_state_o = JSON.parse(
+			Buffer.from(l_client_state_64, "base64").toString("ascii")
 		);
-	}
-	// If client_state exists decodes from base64 to ascii
-	if (l_client_state_64 != null || "") 
-		var l_client_state_s = Buffer.from(
-			l_client_state_64,
-			"base64"
-		).toString("ascii");
-	// Log call_control_id
-	console.log(
-		`[%s] LOG - Webhook received - ${get_timestamp()} 
-		call_control_id | ${l_call_control_id}
-		client_state | ${l_client_state_s}
-		bridge_id | ${l_bridge_id}
-		event_type | ${l_hook_event_type}
-		------------------------------`
-	);
-
-	// Log_client_state
-	// console.log(
-	// 	`[%s] LOG - Webhook received - client_state [%s] ${get_timestamp()} | ${l_client_state_s}`
-	// );
-
-	// Log for Call ID of the Origination Call that we will bridge - if the call is accepted
-	// console.log(
-	// 	`[%s] LOG - Webhook received - bridge_id [%s] ${get_timestamp()} | ${l_bridge_id}`
-	// );
-
-	// Log Complete WebHook
-	// console.log(
-	// 	`[%s] DEBUG - Webhook received - complete payload: %s ${get_timestamp()} | ${JSON.stringify(
-	// 		req.body.data,
-	// 		null,
-	// 		4
-	// 	)}`
-	// );
-
-	// Webhook Call State = Park >> Store Call Control ID >>> Bridge ID
-	if (l_call_state == "parked") {
-		l_bridge_id = l_call_control_id;
-		console.log(
-			`[%s] LOG - Webhook received - Parked call_control_id > bridge_id [%s] ${get_timestamp()} | ${l_bridge_id}`
-		);
-		res.end()
-	}
 	// Call Initiated >> Command Dial
 	if (l_hook_event_type == "call.initiated") {
-		console.log("initiate");
+		// Inbound Call
 		if (req.body.data.payload.direction == "incoming") {
-			console.log("incoming");
-			call_control_dial(
-				g_post_headers,
-				g_connection_id,
-				g_forwarding_did,
-				req.body.data.payload.from,
-				"stage-bridge"
-			);
-			res.end()
-		} else if (req.body.data.payload.direction == "outgoing") {
-			// Timeout 20 seconds - No Answer thus emppty message does not end up in cell phone voicemail
+			// Format the update to client-state so we can execute call flow and the call control id of the call we may eventually bridge follows in client_state
+			let l_client_state = {
+				clientState: "stage-bridge",
+				bridgeId: l_call_control_id,
+			};
+			// Dial to our FindMe/FollowMe Destination, forwarding the original CallerID so we can better determine disposition of choice
+			const { data: call } = await telnyx.calls.create({
+				connection_id: g_connection_id,
+				to: g_forwarding_did,
+				from: req.body.data.payload.from,
+				client_state: Buffer.from(
+					JSON.stringify(l_client_state)
+				).toString("base64"),
+				timeout_secs: "30",
+			});
 			console.log(
-				`[%s] LOG - Time Out Set [%s] ${get_timestamp()} | ${l_bridge_id}`
+				`[%s] LOG - EXEC DIAL -  [%s] ${get_timestamp()} | ${
+					req.body.data.payload.result
+				}`
 			);
-			timeout_to_vm = setTimeout(
-				call_control_speak,
-				30000,
-				g_post_headers,
-				l_call_control_id,
-				l_bridge_id,
-				"Please Leave a Message After the Tone",
-				"stage-voicemail"
+			res.end();
+		} else if (req.body.data.payload.direction == "outgoing") {
+			res.end();
+		}
+
+		// Webhook Dial answered by User - Command Gather Using Speak
+	} else if (l_hook_event_type == "call.answered") {
+		if (l_client_state_o.clientState == "stage-bridge") {
+			let l_client_state = {
+				clientState: "stage-dial",
+				bridgeId: l_client_state_o.bridgeId,
+			};
+			// Gather Using Speak - Present Menu to Forwading destination, 1 to Accept and Bride Call, 2 to Reject and Send to System Voicemail
+			const gather = new telnyx.Call({
+				call_control_id: l_call_control_id,
+			});
+			gather.gather_using_speak({
+				payload: "Call Forwarded press 1 to accept or 2 to reject",
+				voice: g_ivr_voice,
+				language: g_ivr_language,
+				valid_digits: "123",
+				client_state: Buffer.from(
+					JSON.stringify(l_client_state)
+				).toString("base64"),
+			});
+			console.log(`[%s] LOG - EXEC GATHER -  [%s] ${get_timestamp()}`);
+			res.end();
+			// Webhook client_state set to stage-voicemail-greeting, we are able to execute SPEAK which is acting as our Voicemail Greeting
+		} else if (l_client_state_o.clientState == "stage-voicemail-greeting") {
+			// Supply new client_state to trigger the next function in the flow which is to play beep and record the caller's message
+			let l_client_state = {
+				clientState: "stage-voicemail",
+				bridgeId: null,
+			};
+			const speak = new telnyx.Call({
+				call_control_id: l_call_control_id,
+			});
+			// Speak our voicemail greeting, you could alternatively record a custom greeting and issue play audio command
+			speak.speak({
+				payload: "Please Leave a Message After the Tone",
+				voice: g_ivr_voice,
+				language: g_ivr_language,
+				client_state: Buffer.from(
+					JSON.stringify(l_client_state)
+				).toString("base64"),
+			});
+			console.log(
+				`[%s] LOG - EXEC SPEAK VM GREETING -  [%s] ${get_timestamp()}`
 			);
+		} else {
 			res.end();
 		}
 		res.end();
 
-		// Webhook Dial answered by User - Command Gather Using Speak
-	} else if (l_hook_event_type == "call.answered") {
-		if (l_client_state_s == "stage-bridge")
-			call_control_gather_using_speak(
-				g_post_headers,
-				l_call_control_id,
-				`Call Forwarded press 1 to accept or 2 to reject`,
-				"123",
-				"stage-dial"
-			);
-		res.end();
-
-		// Webhook Call Bridged >> Do Nothing
+		// Webhook Call Bridged or Speak Started >> Do Nothing
 	} else if (
 		l_hook_event_type == "call.bridged" ||
 		l_hook_event_type == "call.speak.started"
 	) {
 		res.end();
-		// Webhook Call Speak Started >> Do Nothing
+		// Webhook Call Hungup Started >> Do Nothing
 	} else if (l_hook_event_type == "call.hangup") {
-		g_call_control_options = [];
 		res.end();
-		// Webhook Listen for DTMF to execute Call Recording on Demand
-	} else if (l_hook_event_type == "call.dtmf.received") {
-		if (
-			req.body.data.payload.digit === "*" ||
-			req.body.data.payload.digit === "9"
-		) {
-			// Push digits to array for storage
-			g_call_control_options.push(req.body.data.payload.digit);
-			console.log(
-				`CCarray ${g_call_control_options} - ${g_call_control_options.length}`
-			);
-			// When accepted digits have been pushed to array & array.length = 2 >> Record Call
-			if (g_call_control_options.length === 2) {
-				console.log("record call");
-				call_control_record_start(
-					g_post_headers,
-					l_call_control_id,
-					l_bridge_id
-				);
-				// Empty Array for use on next command
-				g_call_control_options = [];
-			}
-			res.end();
-		}
-		res.end();
-		// Webhook Gather Ended >> Process DTMF for IVR
+		// Find Me / Follow me - handle DTMF to Bridge or Send to Voicemail
 	} else if (l_hook_event_type == "call.gather.ended") {
 		// Receive DTMF Number
-		var l_dtmf_number = req.body.data.payload.digits;
+		const l_dtmf_number = req.body.data.payload.digits;
 
 		console.log(
-			`[%s] DEBUG - RECEIVED DTMF [%s]${(get_timestamp(), l_dtmf_number)}`
+			`[%s] DEBUG - RECEIVED DTMF [%s]${get_timestamp()} | ${l_dtmf_number}`
 		);
-		res.end()
+		res.end();
 
 		// Check Users Selection for forwarded call
 		if (!l_client_state_64) {
-			res.end()
-			// do nothing... will have state
+			res.end();
+			// Do nothing... will have state
 		} else {
 			// Selected Answer Call >> Bridge Calls
-			if (l_client_state_s == "stage-dial" && l_dtmf_number) {
+			if (l_client_state_o.clientState == "stage-dial" && l_dtmf_number) {
 				// Bridge Call
-				console.log(`DTMF RECIEVED: ${l_dtmf_number}`)
 				if (l_dtmf_number == "1") {
-					
-					// Clear Timeout - Call Has been answered
-					clearTimeout(timeout_to_vm);
-					// Bridge Call
-					call_control_bridge(
-						g_post_headers,
-						l_call_control_id,
-						l_bridge_id
+					const bridge_call = new telnyx.Call({
+						call_control_id: l_call_control_id,
+					});
+					// Bridge this call to the initial call control id which triggered our call flow which we stored in client state on the initial Dial
+					bridge_call.bridge({
+						call_control_id: l_client_state_o.bridgeId,
+					});
+					res.end();
+					console.log(
+						`[%s] LOG - EXEC BRIDGE CALLS -  [%s] ${get_timestamp()}`
 					);
-					res.end()
-					// Call rejected >> Speak Message and Hang up this call
+					// Call rejected >> Answer Bridge Call, You must answer the parked call before you can issue speak or play audio
 				} else if (l_dtmf_number == "2") {
-					call_control_answer(g_post_headers,l_bridge_id)
-					call_control_speak(
-						g_post_headers,
-						l_call_control_id,
-						l_bridge_id,
-						"Please Leave a Message After the Tone",
-						"stage-voicemail"
+					// Set Call State so we can initiate the voicemail call flow
+					let l_client_state = {
+						clientState: "stage-voicemail-greeting",
+						bridgeId: null,
+					};
+					const answer_bridge_call = new telnyx.Call({
+						call_control_id: l_client_state_o.bridgeId,
+					});
+
+					answer_bridge_call.answer({
+						client_state: Buffer.from(
+							JSON.stringify(l_client_state)
+						).toString("base64"),
+					});
+
+					// Hangup This call now that user has responded to reject
+					const hangup_call = new telnyx.Call({
+						call_control_id: l_call_control_id,
+					});
+					hangup_call.hangup();
+					console.log(
+						`[%s] LOG - EXEC HANGUP FINDME AND SEND TO VM -  [%s] ${get_timestamp()}`
 					);
-					res.end()
 				}
+				res.end();
 			}
 		}
 
 		res.end();
-		// Webhook Speek Ended >> Record VoiceMail
-	} else if (l_hook_event_type == "call.speak.ended") {
-		call_control_record_start(g_post_headers, l_call_control_id);
+		// Webhook Speak Ended or * received >> Record VoiceMail / Call
+	} else if (
+		req.body.data.payload.digit === "*" ||
+		l_hook_event_type == "call.speak.ended"
+	) {
+		let l_client_state = {
+			clientState: "stage-voicemail-greeting",
+			bridgeId: null,
+		};
+		const record_call = new telnyx.Call({
+			call_control_id: l_call_control_id,
+		});
+		record_call.record_start({
+			format: "mp3",
+			channels: "single",
+			play_beep: true,
+			client_state: Buffer.from(JSON.stringify(l_client_state)).toString(
+				"base64"
+			),
+		});
+		console.log(
+			`[%s] LOG - EXEC RECORD INITIATE -  [%s] ${get_timestamp()}`
+		);
 		res.end();
 		// Webhook Call Recording Saved >> Send Text Message of recording
 	} else if (l_hook_event_type == "call.recording.saved") {
-		//Send Text Message Alert for call recording
-		sms_send_notification(
-			g_post_headers,
-			req.body.data.payload.recording_urls.mp3
-		);
-		// Send Email with link to recording
+		//Send Text Message Alert for call recording - Ber sure to enable Link shortener in Telnyx Messaging Profile
+
+		telnyx.messages
+			.create({
+				from: g_call_control_did, // Your Telnyx number
+				to: g_forwarding_did,
+				text: `You have a new Voicemail${req.body.data.payload.recording_urls.mp3}`,
+			})
+			.then(function(response) {
+				const message = response.data; // asynchronously handled
+			});
+		console.log(`[%s] LOG - EXEC SEND SMS -  [%s] ${get_timestamp()}`);
 
 		res.end();
 	}
-	res.end()
+	res.end();
 });
 
 // ================================================ RESTful Server Start ================================================

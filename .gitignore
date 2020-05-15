@@ -9,3 +9,4 @@ testing/
 telnyx-config-copy.js
 testing.js
 dialed call ans.json
+rest/

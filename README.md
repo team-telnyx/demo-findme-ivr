@@ -39,7 +39,7 @@ You’ll need to have the following Node dependencies installed for the Call Con
 
 ```js
 require(express);
-require(request);
+require(telnyx);
 ```
 
 ## Telnyx Call Control Basics
@@ -50,21 +50,21 @@ For the Call Control application you’ll need to get a set of basic functions t
 - [Call Control Dial](https://developers.telnyx.com/docs/api/v2/call-control/Call-Commands#CallControlDial)
 - [Call Control Speak Text](https://developers.telnyx.com/docs/api/v2/call-control/Call-Commands#CallControlSpeak)
 - [Call Control Gather Using Speak](https://developers.telnyx.com/docs/api/v2/call-control/Call-Commands#CallControlGatherUsingSpeak)
-- [Call Control Hangup](https://developers.telnyx.com/docs/api/v1/call-control/Call-Commands#CallControlHangup)
+- [Call Control Hangup](https://developers.telnyx.com/docs/api/v2/call-control/Call-Commands#CallControlHangup)
 - [Call Control Recording Start](https://developers.telnyx.com/docs/api/v2/call-control/Call-Commands#CallControlRecordStart)
 
 You can get the full set of available Telnyx Call Control Commands [here](https://developers.telnyx.com/docs/api/v2/call-control).
 
-For each Telnyx Call Control Command we will be creating a function that will execute an `HTTP POST` Request to back to Telnyx server.  To execute this API we are using Node `request`, so make sure you have it installed. If not you can install it with the following command:
+For each Telnyx Call Control Command we will be using the Telnyx Node SDK. To execute this API we are using Node `telnyx`, so make sure you have it installed. If not you can install it with the following command:
 
 ```shell
-$ npm install request --save
+$ npm install telnyx --save
 ```
 
-After that you’ll be able to use ‘request’ as part of your app code as follows:
+After that you’ll be able to use ‘telnyx’ as part of your app code as follows:
 
 ```js
-var request = require('request');
+const Telnyx = require("telnyx");
 ```
 
 To make use of the Telnyx Call Control Command API you’ll need to set a Telnyx API Key and Secret. 
@@ -74,8 +74,9 @@ To check that go to Mission Control Portal and under the `Auth` tab you select `
 Once you have them, you can include it as ‘const’ variable in your code:
 
 ```js
-const telnyx_auth = require("./telnyx-config");
-const g_telnyx_api_auth_v2 = telnyx_auth.api;
+const telnyx_auth = require("../telnyx-config-copy");
+
+const telnyx = Telnyx(telnyx_auth.api);
 ```
 
 We have a number of secure credentials to work with we created an additional file `telnyx-config` to store this information. Here we will store our API Key as well as our connection ID, the DID associated with that connection and the PSTN DID we will send calls to.
@@ -93,75 +94,41 @@ module.exports = telnyx_config;
 
 
 ```
-Once all dependencies are set, we can create a function for each Telnyx Call Control Command. All Commands will follow the same syntax:
+Once all dependencies are set, we will use the SDK for each Telnyx Call Control Command. All Commands will follow the similar syntax:
 
 ```js
 
-const call_control_COMMAND_NAME = (f_call_control_id, f_INPUT1, ...) => {
-	
-	var l_cc_action = ‘COMMAND_NAME’
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {
-			call_control_id: f_call_control_id
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-	
-	});
-}
-```
-We are saving some space by storing our post headers in a varible and passing them as a parameter in the function as they do not change
-```js
-const g_post_headers = {
-	"Content-Type": "application/json",
-	Accept: "application/json",
-	Authorization: `Bearer ${g_telnyx_api_auth_v2}`
-};
-
+const { data: call } = await telnyx.calls.create({
+			connection_id: g_connection_id,
+			to: g_forwarding_did,
+			from: req.body.data.payload.from,
+			client_state: `base64encodedstring`
+		});
 ```
 
-### Understanding the Command Syntax
+### Understanding the use of the SDK
 
-There are several aspects of this function that deserve some attention:
+There are several aspects of the SDK that deserve some attention:
 
-`Function Input Parameters`: to execute every Telnyx Call Control Command you’ll need to feed your function with the following: the `Call Control ID`; and the input parameters, specific to the body of the Command you’re executing. Having these set as function input parameters will make it generic enough to reuse in different use cases:
+`Input Parameters`: to execute every Telnyx Call Control Command you’ll need to feed your function with the following: the `Call Control ID`; and the input parameters, specific to the body of the Command you’re executing.
 ```js
-const call_control_COMMAND_NAME = (f_call_control_id, f_INPUT1, ...)
+const gather = new telnyx.Call({
+			call_control_id: l_call_control_id,
+		});
+gather.gather_using_speak({
+				payload: "Call Forwarded press 1 to accept or 2 to reject",
+				voice: g_ivr_voice,
+				language: g_ivr_language,
+				valid_digits: "123",
+				client_state: Buffer.from(
+					JSON.stringify(l_client_state)
+				).toString("base64"),
+			});
 ```
 All Telnyx Call Control Commands will be expecting the `Call Control ID` except `Dial`. There you’ll get a new one for the leg generated as response.
 
-`Name of the Call Control Command`: as detailed [here](https://developers.telnyx.com/docs/api/v2/call-control/), the Command name is part of the API URL. In our code we call that the `action` name, and will feed the POST Request URL later:
-```js
-var cc_action = ‘COMMAND_NAME’
-```
+In this example you can see that `Call Control ID` is input to the Telnyx Call Object. The command to utilize is then specifed when the new Call Object is called with the input paramters pertaining to that command 
 
-`Building the Telnyx Call Control Command`: once you have the Command name defined, you should have all the necessary info to build the complete Telnyx Call Control Command:
-```js
-var options = {
-    url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-    headers: f_post_headers,
-    json: {
-        call_control_id: f_call_control_id
-    }
-};
-```
-In this example you can see that `Call Control ID` and the Action name will feed the URL of the API, both Telnyx Key and Telnyx Secret feed the Authentication headers, and the body will be formed with all the different input parameters  received for that specific Command. 
-
-
-`Calling the Telnyx Call Control Command`: Having the request  `headers` and `options`/`body` set, the only thing left is to execute the `POST Request` to execute the command. 
-For that we are using making use of the node's `request` module:
-```js
- request.post(options,function(err,resp,body){
-    if (err) { return console.log(err); }
-});  
-```
 
 ### Telnyx Call Control Commands
 
@@ -170,214 +137,127 @@ This is how every Telnyx Call Control Command used in this application would loo
 #### Call Control Bridge
 
 ```js
-const call_control_bridge = (f_post_headers, f_call_control_id, f_bridge_id) => {
+const bridge_call = new telnyx.Call({
+	call_control_id: l_call_control_id,});
 	
-	var l_cc_action = "bridge";
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {
-			call_control_id: f_bridge_id
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
+	bridge_call.bridge({
+		call_control_id: l_client_state_o.bridgeId,
 	});
-}
 ```
 
 #### Call Control Dial
 
 ```js
-const call_control_dial = (
-	f_post_headers,
-	f_connection_id,
-	f_dest,
-	f_orig,
-	f_client_state_s
-) => {
-	var l_cc_action = "dial";
-
-	var l_client_state_64 = null;
-
-	if (f_client_state_s)
-		l_client_state_64 = Buffer.from(f_client_state_s).toString("base64");
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/`,
-		headers: f_post_headers,
-		json: {
-			connection_id: f_connection_id,
-			to: f_dest,
-			from: f_orig,
-			client_state: l_client_state_64
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-	});
-}
+const { data: call } = await telnyx.calls.create({
+			connection_id: g_connection_id,
+			to: g_forwarding_did,
+			from: req.body.data.payload.from,
+			client_state: Buffer.from(
+				JSON.stringify(l_client_state)
+			).toString("base64"),
+			timeout_secs: "30",
+		});
 ```
 
 #### Call Control Gather Using Speak
 
 ```js
-const call_control_gather_using_speak = (
-	f_post_headers,
-	f_call_control_id,
-	f_tts_text,
-	f_gather_digits,
-	f_client_state_s
-) => {
-	
-	var l_cc_action = "gather_using_speak";
-	var l_client_state_64 = null;
+const gather = new telnyx.Call({
+	call_control_id: l_call_control_id,});
 
-	if (f_client_state_s)
-		l_client_state_64 = Buffer.from(f_client_state_s).toString("base64");
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {
-			payload: f_tts_text,
-			voice: g_ivr_voice,
-			language: g_ivr_language,
-			valid_digits: f_gather_digits,
-			client_state: l_client_state_64
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-		console.log(
-			"[%s] DEBUG - Command Executed [%s]",
-			get_timestamp(),
-			l_cc_action
-		);
-		console.log(body);
+	gather.gather_using_speak({
+		payload: "Call Forwarded press 1 to accept or 2 to reject",
+		voice: g_ivr_voice,
+		language: g_ivr_language,
+		valid_digits: "123",
+		client_state: Buffer.from(
+			JSON.stringify(l_client_state)
+		).toString("base64"),
 	});
-};  
-}
 ```
 
 #### Call Control Speak
 
 ```js
-const call_control_speak = (
-	f_post_headers,
-	f_call_control_id,
-	f_tts_text,
-	f_client_state_s
-) => {
-	var l_cc_action = "speak";
-	if (f_client_state_s)
-		l_client_state_64 = Buffer.from(f_client_state_s).toString("base64");
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {
-			payload: f_tts_text,
-			voice: g_ivr_voice,
-			language: g_ivr_language,
-			client_state: l_client_state_64,
-			command_id: "blahblah-f3e4-11e8-af5b-de00688a4901"
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
+const speak = new telnyx.Call({
+	call_control_id: l_call_control_id});
+	
+	speak.speak({
+		payload: "Please Leave a Message After the Tone",
+		voice: g_ivr_voice,
+		language: g_ivr_language,
+		client_state: Buffer.from(
+			JSON.stringify(l_client_state)
+		).toString("base64"),
 	});
-};
 ```
 
 #### Call Control Hangup
 
 ```js
-const call_control_hangup = (f_post_headers, f_call_control_id) => {
-
-	var l_cc_action = "hangup";
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-	});
-};
+const hangup_call = new telnyx.Call({
+	call_control_id: l_call_control_id});
+	
+	hangup_call.hangup();
 
 ```
 
 #### Call Control Recording Start
 
 ```js
-const call_control_record_start = (f_post_headers, f_call_control_id) => {
+const record_call = new telnyx.Call({
+	call_control_id: l_call_control_id});
 
-	var l_cc_action = "record_start";
-
-	var options = {
-		url: `https://api.telnyx.com/v2/calls/${f_call_control_id}/actions/${l_cc_action}`,
-		headers: f_post_headers,
-		json: {
-			format: "mp3",
-			channels: "single",
-			play_beep: true
-		}
-	};
-
-	request.post(options, function(err, resp, body) {
-		if (err) {
-			return console.log(err);
-		}
-	});
-};
-
+	record_call.record_start({
+		format: "mp3",
+		channels: "single",
+		play_beep: true,
+		client_state: Buffer.from(JSON.stringify(l_client_state)).toString(
+			"base64"
+		),});
 ```
 
 #### SMS Send Notification
 
 ```js
-const sms_send_notification = f_post_headers => {
-
-	const options = {
-		url: "https://api.telnyx.com/v2/messages",
-		headers: f_post_headers,
-		json: {
-			from: g_call_control_did,
-			to: g_forwarding_did,
-			text: `You have a new voicemail available `
-		}
-	};
-
-	request.post(options, (err, resp, body) => {
-		if (err) {
-			return console.log(err);
-		}
+telnyx.messages.create({
+	from: g_call_control_did, // Your Telnyx number
+	to: g_forwarding_did,
+	text: `You have a new Voicemail${req.body.data.payload.recording_urls.mp3}`,
+	})
+	.then(function(response) {
+		const message = response.data; // asynchronously handled
 	});
-};
-
 ```
+
+### Client State
 
 `Client State`: within some of the Telnyx Call Control Commands list we presented, you probably noticed we were including the `Client State` parameter. `Client State` is the key to ensure that we can perform functions only when very specific conditions are met on our App while consuming the same Call Control Events. 
 
 Because Call Control is stateless and async your application will be receiving several events of the same type, e.g. user just included `DTMF`. With `Client State` you enforce a unique ID to be sent back to Telnyx which be used within a particular Command flow and identifying it as being at a specific place in the call flow.
+
+This app in particular will bridge two seperate calls together in the event the user chooses to accept the call. Thus the call_control_id of the pending bridge call must be mapped, and not be risked to being stored in a variable which could be re-assigned while we are waiting for gather response - should a new call be intiated 
+
+#### Build Client State object and Encode to base64
+```js
+// Build Client State Object
+let l_client_state = {
+	clientState: "stage-bridge",
+	bridgeId: l_call_control_id,
+	};
+
+// Object to String and Encode to Base64
+Buffer.from(
+	JSON.stringify(l_client_state)
+	).toString("base64")
+
+
+// When we receive the hook - If client_state exists decode from base64
+if (l_client_state_64 != null || "")
+	var l_client_state_o = JSON.parse(
+		Buffer.from(l_client_state_64, "base64").toString("ascii")
+	);
+```
 
 
 ## Building Find Me Follow Me IVR
@@ -412,7 +292,7 @@ $ npm install request --save
 With `express` we can create an API wrapper that uses `HTTP GET` to call our Request Token method:
 
 ```js
-rest.post(`/${g_appName}/followme`, (req, res) => {
+rest.post(`/${g_appName}/followme`, async (req, res) => {
   // APP CODE GOES HERE  
 })
 ```
@@ -447,51 +327,40 @@ if (req && req.body && req.body.event_type){
 		var l_hook_event_type = req.body.data.event_type;
 		var l_call_control_id = req.body.data.payload.call_control_id;
 		var l_client_state_64 = req.body.data.payload.client_state;
-		var l_call_state = req.body.data.payload.state;
 } else{res.end('0');}
 ```
 
-Once you identify the `Event Type` and `Call State` received, it’s just a matter of having your application reacting to that. Is the way you react to that Event that helps you creating the IVR logic. What you would be doing is to execute Telnyx Call Control Command as a reaction to those Events.
+Once you identify the `Event Type` and `client_state` received, it’s just a matter of having your application reacting to that. Is the way you react to that Event that helps you creating the IVR logic. What you would be doing is to execute Telnyx Call Control Command as a reaction to those Events.
 
-### `Webhook Call State = Park >> Store Call Control ID >>> Bridge ID`
-
-```js
-if (l_call_state == "parked") {
-    l_bridge_id = l_call_control_id;
-    console.log(
-        `[%s] LOG - Webhook received - Parked call_control_id > bridge_id [%s] ${get_timestamp()} | ${l_bridge_id}`
-    );
-}
-```
 
 ### `Webhook Call Initiated >> Command Dial`
 If our event_type is call.initiated and the direction is incoming we are going to execute the command to Dial the User. After the Dial is executed and we get a new webhook for the dialed call which the direction will be "outgoing," we will execute our 20 second time out function so that the user's mobile voicemail doesn't pick up and we leave an empty message there
 
 ```js
 if (l_hook_event_type == "call.initiated") {
-    if (req.body.data.payload.direction == "incoming") {
-        call_control_dial(
-            g_post_headers,
-            g_connection_id,
-            g_forwarding_did,
-            req.body.data.payload.from,
-            "stage-bridge"
-        );
-    } else if (req.body.data.payload.direction == "outgoing") {
-        // Timeout 20 seconds - No Answer thus emppty message does not end up in cell phone voicemail
-        timeout_to_vm = setTimeout(
-            call_control_speak,
-            20000,
-            g_post_headers,
-            l_call_control_id,
-            l_bridge_id,
-            "Please Leave a Message After the Tone",
-            "stage-voicemail"
-        );
-        res.end();
-    }
-
-    res.end();
+		// Inbound Call
+		if (req.body.data.payload.direction == "incoming") {
+			// Format the update to client-state so we can execute call flow and the call control id of the call we may eventually bridge follows in client_state
+			let l_client_state = {
+				clientState: "stage-bridge",
+				bridgeId: l_call_control_id,
+			};
+			// Dial to our FindMe/FollowMe Destination, forwarding the original CallerID so we can better determine disposition of choice
+			const { data: call } = await telnyx.calls.create({
+				connection_id: g_connection_id,
+				to: g_forwarding_did,
+				from: req.body.data.payload.from,
+				client_state: Buffer.from(
+					JSON.stringify(l_client_state)
+				).toString("base64"),
+				timeout_secs: "30",
+			});
+			console.log(
+				`[%s] LOG - EXEC DIAL -  [%s] ${get_timestamp()} | ${
+					req.body.data.payload.result
+				}`
+			);
+			res.end();
 
 ```
 
@@ -503,16 +372,26 @@ As part of the `Gather Using Speak` Command we indicate that valid digits for th
 
 ```js
 else if (l_hook_event_type == "call.answered") {
-		if (l_client_state_s == "stage-bridge")
-			call_control_gather_using_speak(
-				g_post_headers,
-				l_call_control_id,
-				`Call Forwarded press 1 to accept or 2 to reject`,
-				"123",
-				"stage-dial"
-			);
-
-		res.end();
+		if (l_client_state_o.clientState == "stage-bridge") {
+			let l_client_state = {
+				clientState: "stage-dial",
+				bridgeId: l_client_state_o.bridgeId,
+			};
+			// Gather Using Speak - Present Menu to Forwading destination, 1 to Accept and Bride Call, 2 to Reject and Send to System Voicemail
+			const gather = new telnyx.Call({
+				call_control_id: l_call_control_id,
+			});
+			gather.gather_using_speak({
+				payload: "Call Forwarded press 1 to accept or 2 to reject",
+				voice: g_ivr_voice,
+				language: g_ivr_language,
+				valid_digits: "123",
+				client_state: Buffer.from(
+					JSON.stringify(l_client_state)
+				).toString("base64"),
+			});
+			console.log(`[%s] LOG - EXEC GATHER -  [%s] ${get_timestamp()}`);
+			res.end();
 }
 ```
 
@@ -534,44 +413,36 @@ else if (l_hook_event_type == call_bridged){
 		res.end();
 }
 ```
-### `Webhook Call Hangup >> Clear DTMF Call Control Options`
-When the call is hung up we want to clear out the array which stores the specified dtmf digits which enable call recording demand
-```js
-  else if (l_hook_event_type == "call.hangup") {
-		g_call_control_options = [];
-		res.end();s.end();
-}
-```
+
 ### `Webhook Listen for DTMF to execute Call Recording on Demand`
-We need to be listening for the specified digits in order to execute the recording on demand feature, specifically *9. Now this example is very rudimentary and is just for proof of concept. In production, the dtmf should only be received from the user's call leg. Additionally here, we will empty the array once the condition is met and we execute the `Recording Start` Command
+We need to be listening for the specified digit in order to execute the recording on demand feature, specifically *. Now this example is very rudimentary and is just for proof of concept. In production, the dtmf should only be received from the user's call leg. Additionally here, we will empty the array once the condition is met and we execute the `Recording Start` Command. We are also re-using this to record are voicemail message.
 
 
 ```js
-else if (l_hook_event_type == "call.dtmf.received") {
-		
-		if (
-			req.body.data.payload.digit === "*" ||
-			req.body.data.payload.digit === "9"
-		) {
-			// Push digits to array for storage
-			g_call_control_options.push(req.body.data.payload.digit);
-			console.log(
-				`CCarray ${g_call_control_options} - ${g_call_control_options.length}`
-			);
-			// When accepted digits have been pushed to array & array.length = 2 >> Record Call
-			if (g_call_control_options.length === 2) {
-				console.log("record call");
-				call_control_record_start(
-					g_post_headers,
-					l_call_control_id,
-				);
-				// Empty Array for use on next command
-				g_call_control_options = [];
-			}
-			res.end();
-		}
+else if (
+		req.body.data.payload.digit === "*" ||
+		l_hook_event_type == "call.speak.ended"
+	) {
+		let l_client_state = {
+			clientState: "stage-voicemail-greeting",
+			bridgeId: null,
+		};
+		const record_call = new telnyx.Call({
+			call_control_id: l_call_control_id,
+		});
+		record_call.record_start({
+			format: "mp3",
+			channels: "single",
+			play_beep: true,
+			client_state: Buffer.from(JSON.stringify(l_client_state)).toString(
+				"base64"
+			),
+		});
+		console.log(
+			`[%s] LOG - EXEC RECORD INITIATE -  [%s] ${get_timestamp()}`
+		);
 		res.end();
-	} 
+	}
 ```
 *Important Note: With DTMF, you will recieve both dtmf in the payload of webhooks for both `call.gather.ended` and `call.dtmf.received`. The main difference is that in the gather webhooks dtmf will be sent as value to key "digits" and in dtmf.received the key will be "digit."*
 
@@ -583,66 +454,75 @@ We're doing a number of things here.
 2. If the user presses 2, we are going to do execute two commands. We will speak the voicemail greeting to the caller, and issue hangup to the users mobile.
 
 In order to bridge the calls. We need both the call_control_id for this Dialed Call and the call_control_id PSTN Caller. Thus is the call_control_bridge function you see we are passing. 
-* `l_call_control_id` The call control id of the latest webhook we just recieved the DTMF on and has a `call_state` of "stage-dial"
-* `l_bridge_id` The PSTN caller's call control id, we set that varibale earlier when we first received the webhook on the incominng call that had a `call_state` of "parked."
-```js
-if (l_call_state == "parked") {
-		l_bridge_id = l_call_control_id;
-		console.log(
-			`[%s] LOG - Webhook received - Parked call_control_id > bridge_id [%s] ${get_timestamp()} | ${l_bridge_id}`
-		);
-	}
+* `l_call_control_id` The call control id of the latest webhook we just recieved the DTMF on and has a `client_state` of "stage-dial"
+* `l_bridge_id` The PSTN caller's call control id, we set that variable to our client state object in `l_client_state.bridgeId` earlier when we first received the webhook on the incoming call.
 
-```
 We've been receiving webhooks for both the original PSTN caller and for the new call we placed via Dial to the user. Both have their own unique call_control_ids, which we will use to bridge both calls together. Here you will witness the importance of `client_state` as we're only executing the bridge on the dial webhook that we set client_state of "stage-dial".
 
-### `// Webhook Gather Ended >> Process DTMF for IVR `
+### `Webhook Gather Ended >> Process DTMF for IVR`
 ```js
-else if (l_hook_event_type == "call.gather.ended") {
+ else if (l_hook_event_type == "call.gather.ended") {
 		// Receive DTMF Number
-		var l_dtmf_number = req.body.data.payload.digits;
+		const l_dtmf_number = req.body.data.payload.digits;
+
+		console.log(
+			`[%s] DEBUG - RECEIVED DTMF [%s]${get_timestamp()} | ${l_dtmf_number}`
+		);
+		res.end();
+
 		// Check Users Selection for forwarded call
 		if (!l_client_state_64) {
-			// do nothing... will have state
+			res.end();
+			// Do nothing... will have state
 		} else {
 			// Selected Answer Call >> Bridge Calls
-			if (l_client_state_s == "stage-dial" && l_dtmf_number) {
+			if (l_client_state_o.clientState == "stage-dial" && l_dtmf_number) {
 				// Bridge Call
 				if (l_dtmf_number == "1") {
-					// Clear Timeout - Call Has been answered
-					clearTimeout(timeout_to_vm);
-					// Bridge Call
-					call_control_bridge(
-						g_post_headers,
-						l_call_control_id,
-						l_bridge_id
+					const bridge_call = new telnyx.Call({
+						call_control_id: l_call_control_id,
+					});
+					// Bridge this call to the initial call control id which triggered our call flow which we stored in client state on the initial Dial
+					bridge_call.bridge({
+						call_control_id: l_client_state_o.bridgeId,
+					});
+					res.end();
+					console.log(
+						`[%s] LOG - EXEC BRIDGE CALLS -  [%s] ${get_timestamp()}`
 					);
-					// Call rejected >> Speak Message and Hang up this call
+					// Call rejected >> Answer Bridge Call, You must answer the parked call before you can issue speak or play audio
 				} else if (l_dtmf_number == "2") {
-					call_control_speak(
-						g_post_headers,
-						l_call_control_id,
-						l_bridge_id,
-						"Please Leave a Message After the Tone",
-						"stage-voicemail"
+					// Set Call State so we can initiate the voicemail call flow
+					let l_client_state = {
+						clientState: "stage-voicemail-greeting",
+						bridgeId: null,
+					};
+					const answer_bridge_call = new telnyx.Call({
+						call_control_id: l_client_state_o.bridgeId,
+					});
+
+					answer_bridge_call.answer({
+						client_state: Buffer.from(
+							JSON.stringify(l_client_state)
+						).toString("base64"),
+					});
+
+					// Hangup This call now that user has responded to reject
+					const hangup_call = new telnyx.Call({
+						call_control_id: l_call_control_id,
+					});
+					hangup_call.hangup();
+					console.log(
+						`[%s] LOG - EXEC HANGUP FINDME AND SEND TO VM -  [%s] ${get_timestamp()}`
 					);
 				}
+				res.end();
 			}
 		}
 
 		res.end();
-```
-### `Webhook Speak Ended >> Record Voicemail`
-Speak and Gather Using Speak are two different commands. We are receiving a webhook of `call.speak.ended` after the voicemail greeting has been played. Now we want to issuse call_control_record_start to record the PSTN Caller's Message 
-
-```js
-else if (l_hook_event_type == "call.speak.ended") {
-		call_control_record_start(
-			g_post_headers,
-			l_call_control_id,
-		);
-
-		res.end();
+		// Webhook Speak Ended or * received >> Record VoiceMail / Call
+	}
 ```
 
 ### `Webhook Call Recording Saved >> Send Text Message of recording`
@@ -650,15 +530,19 @@ We are receiving a webhook of `call.recording.saved` after BOTH a voicemail has 
 
 ```js
 else if (l_hook_event_type == "call.recording.saved") {
-		//Send Text Message Alert for call recording
-		sms_send_notification(g_post_headers);
-		// Send Email with link to recording
-		send_email(
-			req.body.data.payload.recording_urls.mp3,
-			g_smtp_user,
-			g_smtp_user,
-			g_recordings_email
-		).catch(console.error);
+		//Send Text Message Alert for call recording - Ber sure to enable Link shortener in Telnyx Messaging Profile
+
+		telnyx.messages
+			.create({
+				from: g_call_control_did, // Your Telnyx number
+				to: g_forwarding_did,
+				text: `You have a new Recording ${req.body.data.payload.recording_urls.mp3}`,
+			})
+			.then(function(response) {
+				const message = response.data; // asynchronously handled
+			});
+		console.log(`[%s] LOG - EXEC SEND SMS -  [%s] ${get_timestamp()}`);
+
 		res.end();
 	}
 ```

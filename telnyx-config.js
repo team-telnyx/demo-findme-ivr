@@ -4,5 +4,5 @@ const telnyx_config = {
     telnyx_did: "+18888675309",
 	c_fwd_number: "+13128675309",
   
-
+}
 module.exports = telnyx_config;

@@ -5,15 +5,14 @@
   "main": "demo-followme.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon demo-followme-sdk"
+    "dev": "node demo-followme.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "express": "^4.17.1",
-    "nodemailer": "^6.4.2",
     "nodemon": "^2.0.2",
-    "request": "^2.88.0"
+    "telnyx": "^1.7.1"
   }
 }
